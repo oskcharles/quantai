@@ -14,6 +14,13 @@ const SEED_PRICES: Record<string, number> = {
   XAUUSD: 2385.4,
   BTCUSD: 62150,
   US30: 39250,
+  US500: 5720,
+  SPX: 5720,
+  SPX500: 5720,
+  "ES1!": 5735,
+  "NQ1!": 20150,
+  "YM1!": 39280,
+  NAS100: 20150,
 };
 
 function jitter(base: number) {

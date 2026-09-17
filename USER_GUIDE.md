@@ -68,20 +68,56 @@ into a master account instead of opening trades by hand:
 2. Click **Show TradingView webhook URL**, then **Copy**.
 3. In TradingView, open your alert's settings and paste that URL into the
    **Webhook URL** field.
-4. Set the alert's **message** to JSON in this shape:
-   ```json
-   {"symbol": "EURUSD", "side": "BUY", "volume": 1}
-   ```
-   `side` must be `BUY` or `SELL`. `volume` is optional (defaults to `1`).
+4. Set the alert's **message** to JSON in one of these shapes:
+   - **Open a trade:**
+     ```json
+     {"symbol": "EURUSD", "side": "BUY", "volume": 1}
+     ```
+     `symbol` can be anything — a forex pair, `ES1!`, `SPX`, `NQ1!`,
+     whatever you trade; it isn't limited to currencies. `side` is
+     `BUY`/`SELL` (either case works). `volume` is optional, defaults to `1`.
+   - **Close the open trade:**
+     ```json
+     {"action": "CLOSE", "symbol": "EURUSD"}
+     ```
+     `symbol` is optional — omit it to close the most recent open trade on
+     that master, or include it to only close a trade in that symbol.
 5. Save the alert. When it fires, TradingView calls the webhook, which
-   opens the trade on that master account — from there it copies to
-   followers exactly like a manually-opened trade.
+   opens or closes the trade on that master account — from there it
+   copies to followers exactly like a manually-opened/closed trade.
 
 The webhook URL contains a secret token — anyone with that exact URL can
 open trades on that master account, so treat it like a password. If it
 leaks, click **Regenerate** to invalidate the old one and issue a new URL
 (you'll need to update the TradingView alert with the new URL too), or
 **Disable** to turn the webhook off entirely.
+
+### Wiring up a Pine `strategy()` script (entry + close)
+
+If your Pine script is a `strategy()` (not just an indicator) with
+separate entry and exit logic — e.g. `strategy.entry("Long", strategy.long)`
+on one condition and `strategy.close("Long")` on another — the most
+reliable setup is to add explicit `alert()` calls at each point, so each
+alert carries the exact right JSON regardless of what TradingView's
+placeholders happen to output:
+
+```pine
+if inDateRange
+    if longCondition
+        strategy.entry("Long", strategy.long)
+        alert('{"symbol":"' + syminfo.ticker + '","side":"BUY","volume":1}', alert.freq_once_per_bar_close)
+    if flatCondition
+        strategy.close("Long")
+        alert('{"action":"CLOSE","symbol":"' + syminfo.ticker + '"}', alert.freq_once_per_bar_close)
+```
+
+Then in TradingView, create **one alert**: condition = your strategy,
+trigger = **"Any alert() function call"** (not "Order fills"), paste the
+CopyFlow webhook URL, and leave the message as the default `{{message}}`
+— that forwards whatever string the `alert()` call sent. `syminfo.ticker`
+fills in the current chart's symbol automatically (e.g. `ES1!` on an S&P
+500 futures chart), so the same alert works on any ticker you apply the
+script to.
 
 ## 5. Run the copy engine
 
