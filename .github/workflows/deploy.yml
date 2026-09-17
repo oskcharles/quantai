@@ -23,6 +23,18 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
+      # 0001_init.sql was applied by hand (via `wrangler d1 execute`) before
+      # this workflow existed, so Wrangler's own migration-tracking table
+      # doesn't know about it. Back-fill that record — idempotent (INSERT OR
+      # IGNORE), safe to leave in permanently — so `migrations apply` below
+      # only ever runs genuinely new migrations.
+      - name: Mark pre-existing baseline migration as applied
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 execute copyflow-db --remote --command "CREATE TABLE IF NOT EXISTS d1_migrations (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, applied_at DATETIME DEFAULT CURRENT_TIMESTAMP); INSERT OR IGNORE INTO d1_migrations (name) VALUES ('0001_init.sql');"
+
       - name: Apply D1 migrations
         uses: cloudflare/wrangler-action@v3
         with:
