@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// SQLite has no native enum type, so these are plain strings constrained at
+// the application layer. See src/lib/constants.ts for the allowed values:
+// BrokerPlatform: PAPER | MT4 | MT5 | CTRADER
+// ConnectionRole: MASTER | FOLLOWER
+// TradeSide: BUY | SELL
+// TradeStatus: OPEN | CLOSED
+// CopyStatus: PENDING | EXECUTED | FAILED | CLOSED
+
+model User {
+  id           String       @id @default(cuid())
+  name         String?
+  email        String       @unique
+  passwordHash String
+  createdAt    DateTime     @default(now())
+  connections  Connection[]
+}
+
+model Connection {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label     String
+  platform  String   @default("PAPER")
+  role      String
+  accountId String
+  server    String?
+  apiKey    String?
+  apiSecret String?
+  balance   Float    @default(10000)
+  equity    Float    @default(10000)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  trades        Trade[]
+  masterLinks   CopyLink[]    @relation("MasterLinks")
+  followerLinks CopyLink[]    @relation("FollowerLinks")
+  copiedTrades  CopiedTrade[]
+
+  @@index([userId])
+}
+
+model CopyLink {
+  id              String   @id @default(cuid())
+  masterId        String
+  master          Connection @relation("MasterLinks", fields: [masterId], references: [id], onDelete: Cascade)
+  followerId      String
+  follower        Connection @relation("FollowerLinks", fields: [followerId], references: [id], onDelete: Cascade)
+  riskMultiplier  Float    @default(1.0)
+  maxLotSize      Float?
+  reverseCopy     Boolean  @default(false)
+  symbolWhitelist String?
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  copiedTrades CopiedTrade[]
+
+  @@unique([masterId, followerId])
+  @@index([masterId])
+  @@index([followerId])
+}
+
+model Trade {
+  id           String    @id @default(cuid())
+  connectionId String
+  connection   Connection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  ticketId     String
+  symbol       String
+  side         String
+  volume       Float
+  openPrice    Float
+  closePrice   Float?
+  status       String    @default("OPEN")
+  openedAt     DateTime  @default(now())
+  closedAt     DateTime?
+
+  copiedTrades CopiedTrade[]
+
+  @@index([connectionId])
+}
+
+model CopiedTrade {
+  id               String    @id @default(cuid())
+  sourceTradeId    String
+  sourceTrade      Trade     @relation(fields: [sourceTradeId], references: [id], onDelete: Cascade)
+  copyLinkId       String
+  copyLink         CopyLink  @relation(fields: [copyLinkId], references: [id], onDelete: Cascade)
+  followerId       String
+  follower         Connection @relation(fields: [followerId], references: [id], onDelete: Cascade)
+  followerTicketId String?
+  volume           Float
+  status           String    @default("PENDING")
+  errorMessage     String?
+  executedAt       DateTime?
+  closedAt         DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@unique([sourceTradeId, copyLinkId])
+  @@index([copyLinkId])
+}
