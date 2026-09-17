@@ -23,6 +23,13 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
+      - name: Apply D1 migrations
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 migrations apply copyflow-db --remote
+
       - name: Build for Cloudflare
         run: npm run cf:build
 

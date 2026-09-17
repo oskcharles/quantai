@@ -44,12 +44,18 @@ Copy the `database_id` it prints into `wrangler.jsonc` (replace
 
 ### 2. Apply the schema to D1
 
+The `migrations/` folder (Wrangler's own migration format, separate from
+`prisma/migrations/`) holds the same SQL, tracked idempotently by Wrangler
+so it's safe to re-run — the GitHub Actions workflow does this
+automatically on every deploy:
+
 ```bash
-npx wrangler d1 execute copyflow-db --remote --file=prisma/migrations/<latest-folder>/migration.sql
+npx wrangler d1 migrations apply copyflow-db --remote
 ```
 
-(Run this again after any future `npm run db:migrate` that adds a new
-migration folder.)
+**When you add a new Prisma migration** (`npm run db:migrate`), copy its
+generated `migration.sql` into `migrations/` as the next-numbered file
+(e.g. `migrations/0002_your_change.sql`) so Wrangler picks it up too.
 
 ### 3. Set the AUTH_SECRET secret (once)
 
