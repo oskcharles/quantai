@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { getBrokerAdapter } from "@/lib/brokers";
 import { TRADE_SIDES } from "@/lib/constants";
 
@@ -19,6 +19,7 @@ const schema = z.object({
  * Trade row is what the copy engine watches to mirror onto followers.
  */
 export async function POST(req: Request) {
+  const prisma = await getDb();
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -47,7 +48,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const adapter = getBrokerAdapter(connection);
+    const adapter = getBrokerAdapter(prisma, connection);
     const order = await adapter.placeOrder({
       symbol: parsed.data.symbol.toUpperCase(),
       side: parsed.data.side,

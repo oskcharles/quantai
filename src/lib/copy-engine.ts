@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import type { PrismaClient } from "@prisma/client";
 import { getBrokerAdapter } from "@/lib/brokers";
 import type { OrderSide } from "@/lib/brokers/types";
 
@@ -36,8 +36,8 @@ function symbolAllowed(symbol: string, whitelist: string | null) {
  * (webhook or websocket) instead of being polled on demand, but the logic
  * here is identical either way — only the trigger changes.
  */
-export async function runCopyEngineTick(userId: string) {
-  const links = await prisma.copyLink.findMany({
+export async function runCopyEngineTick(db: PrismaClient, userId: string) {
+  const links = await db.copyLink.findMany({
     where: { active: true, master: { userId } },
     include: { master: true, follower: true },
   });
@@ -46,14 +46,14 @@ export async function runCopyEngineTick(userId: string) {
     [];
 
   for (const link of links) {
-    const openMasterTrades = await prisma.trade.findMany({
+    const openMasterTrades = await db.trade.findMany({
       where: { connectionId: link.masterId, status: "OPEN" },
     });
 
     for (const trade of openMasterTrades) {
       if (!symbolAllowed(trade.symbol, link.symbolWhitelist)) continue;
 
-      const existing = await prisma.copiedTrade.findUnique({
+      const existing = await db.copiedTrade.findUnique({
         where: {
           sourceTradeId_copyLinkId: {
             sourceTradeId: trade.id,
@@ -73,15 +73,15 @@ export async function runCopyEngineTick(userId: string) {
         : (trade.side as OrderSide);
 
       try {
-        const adapter = getBrokerAdapter(link.follower);
+        const adapter = getBrokerAdapter(db, link.follower);
         const order = await adapter.placeOrder({
           symbol: trade.symbol,
           side,
           volume,
         });
 
-        await prisma.$transaction([
-          prisma.copiedTrade.create({
+        await db.$transaction([
+          db.copiedTrade.create({
             data: {
               sourceTradeId: trade.id,
               copyLinkId: link.id,
@@ -92,7 +92,7 @@ export async function runCopyEngineTick(userId: string) {
               executedAt: new Date(),
             },
           }),
-          prisma.trade.create({
+          db.trade.create({
             data: {
               connectionId: link.followerId,
               ticketId: order.ticketId,
@@ -111,7 +111,7 @@ export async function runCopyEngineTick(userId: string) {
           detail: `${side} ${volume} ${trade.symbol} on ${link.follower.label}`,
         });
       } catch (err) {
-        await prisma.copiedTrade.create({
+        await db.copiedTrade.create({
           data: {
             sourceTradeId: trade.id,
             copyLinkId: link.id,
@@ -130,7 +130,7 @@ export async function runCopyEngineTick(userId: string) {
     }
 
     // Mirror closes: if a source trade closed, close the copied trade too.
-    const openCopies = await prisma.copiedTrade.findMany({
+    const openCopies = await db.copiedTrade.findMany({
       where: { copyLinkId: link.id, status: "EXECUTED" },
       include: { sourceTrade: true },
     });
@@ -138,22 +138,22 @@ export async function runCopyEngineTick(userId: string) {
     for (const copy of openCopies) {
       if (copy.sourceTrade.status !== "CLOSED") continue;
 
-      const followerTrade = await prisma.trade.findFirst({
+      const followerTrade = await db.trade.findFirst({
         where: { ticketId: copy.followerTicketId ?? "" },
       });
       if (!followerTrade || followerTrade.status === "CLOSED") continue;
 
-      const adapter = getBrokerAdapter(link.follower);
+      const adapter = getBrokerAdapter(db, link.follower);
       const { closePrice } = await adapter.closePosition(
         followerTrade.ticketId,
       );
 
-      await prisma.$transaction([
-        prisma.trade.update({
+      await db.$transaction([
+        db.trade.update({
           where: { id: followerTrade.id },
           data: { status: "CLOSED", closePrice, closedAt: new Date() },
         }),
-        prisma.copiedTrade.update({
+        db.copiedTrade.update({
           where: { id: copy.id },
           data: { status: "CLOSED", closedAt: new Date() },
         }),

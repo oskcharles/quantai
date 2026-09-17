@@ -2,9 +2,13 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// Cloudflare D1 is SQLite-compatible, so the "sqlite" provider is used both
+// locally (via the better-sqlite3 driver adapter, see prisma.config.ts) and
+// in production (via the D1 driver adapter configured in src/lib/db.ts) —
+// same schema, same SQL either way. Prisma 7 always connects through a
+// driver adapter; there's no `url` here anymore.
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
 }
 
 // SQLite has no native enum type, so these are plain strings constrained at

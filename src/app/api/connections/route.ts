@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { BROKER_PLATFORMS, CONNECTION_ROLES } from "@/lib/constants";
 
 const schema = z.object({
@@ -15,6 +15,7 @@ const schema = z.object({
 });
 
 export async function GET() {
+  const prisma = await getDb();
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -29,6 +30,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const prisma = await getDb();
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

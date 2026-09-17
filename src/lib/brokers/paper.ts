@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import type { PrismaClient } from "@prisma/client";
 import {
   BrokerAdapter,
   OpenPosition,
@@ -30,7 +30,7 @@ function jitter(base: number) {
 export class PaperBrokerAdapter implements BrokerAdapter {
   readonly platform = "PAPER";
 
-  constructor(private connectionId: string) {}
+  constructor(private db: PrismaClient, private connectionId: string) {}
 
   async getQuote(symbol: string): Promise<number> {
     const base = SEED_PRICES[symbol] ?? 100;
@@ -38,7 +38,7 @@ export class PaperBrokerAdapter implements BrokerAdapter {
   }
 
   async listOpenPositions(): Promise<OpenPosition[]> {
-    const trades = await prisma.trade.findMany({
+    const trades = await this.db.trade.findMany({
       where: { connectionId: this.connectionId, status: "OPEN" },
     });
     return trades.map((t) => ({
@@ -57,7 +57,7 @@ export class PaperBrokerAdapter implements BrokerAdapter {
   }
 
   async closePosition(ticketId: string): Promise<{ closePrice: number }> {
-    const trade = await prisma.trade.findFirst({ where: { ticketId } });
+    const trade = await this.db.trade.findFirst({ where: { ticketId } });
     const closePrice = await this.getQuote(trade?.symbol ?? "EURUSD");
     return { closePrice };
   }

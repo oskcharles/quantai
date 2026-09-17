@@ -25,7 +25,7 @@ export default function RegisterPage() {
     });
 
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
       setError(data.error ?? "Something went wrong");
       setLoading(false);
       return;
