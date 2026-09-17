@@ -1,18 +1,28 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "copyflow",
-  "main": ".open-next/worker.js",
-  "compatibility_date": "2026-09-17",
-  "compatibility_flags": ["nodejs_compat"],
-  "assets": {
-    "directory": ".open-next/assets",
-    "binding": "ASSETS"
-  },
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "copyflow-db",
-      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID"
-    }
-  ]
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "copyflow",
+	"main": ".open-next/worker.js",
+	"compatibility_date": "2026-09-17",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"assets": {
+		"directory": ".open-next/assets",
+		"binding": "ASSETS"
+	},
+	"d1_databases": [
+"d1_databases": [
+  		{
+    			"binding": "DB",
+    			"database_name": "copyflow-db",
+    			"database_id": "b4457e79-3963-4bc0-aaf8-879b951ab8e2"
+  		}
+			],
+		{
+			"binding": "copyflow_db",
+			"database_name": "copyflow-db",
+			"database_id": "b4457e79-3963-4bc0-aaf8-879b951ab8e2",
+			"remote": true
+		}
+	]
 }
