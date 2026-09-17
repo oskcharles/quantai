@@ -51,25 +51,37 @@ npx wrangler d1 execute copyflow-db --remote --file=prisma/migrations/<latest-fo
 (Run this again after any future `npm run db:migrate` that adds a new
 migration folder.)
 
-### 3. Connect the repo in the Cloudflare dashboard
-
-In the Cloudflare dashboard: **Workers & Pages → Create → Workers → Import
-a Git repository**, pick this repo/branch, and set:
-
-- Build command: `npm run cf:build`
-- Deploy command: `npx wrangler deploy`
-- Environment variable `AUTH_SECRET`: generate one with `openssl rand -base64 32`
-  and set it as a **secret** (not a plaintext var).
-
-Cloudflare will pick up the `d1_databases` binding from `wrangler.jsonc`
-automatically. Every push to the connected branch redeploys.
-
-### 4. Deploying manually instead (optional)
-
-If you'd rather deploy from your own machine instead of Git integration:
+### 3. Set the AUTH_SECRET secret (once)
 
 ```bash
 npx wrangler secret put AUTH_SECRET
+```
+
+Paste in a value generated with `openssl rand -base64 32` (or
+`node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`).
+This is stored on Cloudflare's side against the Worker, independent of how
+it gets deployed — you only need to do this once.
+
+### 4. Auto-deploy on every push (GitHub Actions)
+
+`.github/workflows/deploy.yml` deploys automatically on every push to
+`main` or `claude/serene-shannon-hl7rx8`, running on GitHub's own runners
+(this avoids Windows/OpenNext quirks — it always builds on Linux). One-time
+setup: in the GitHub repo, go to **Settings → Secrets and variables →
+Actions** and add two repository secrets:
+
+- `CLOUDFLARE_API_TOKEN` — a token with "Edit Cloudflare Workers" permissions
+  (Cloudflare dashboard → My Profile → API Tokens → Create Token)
+- `CLOUDFLARE_ACCOUNT_ID` — from the Workers & Pages overview page in the
+  Cloudflare dashboard
+
+After that, every push deploys itself — no local `wrangler` commands needed.
+
+### 5. Deploying manually instead (optional)
+
+If you'd rather deploy from your own machine:
+
+```bash
 npm run cf:deploy
 ```
 
