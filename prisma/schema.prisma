@@ -1,5 +1,7 @@
 generator client {
-  provider = "prisma-client-js"
+  provider     = "prisma-client-js"
+  runtime      = "workerd"
+  moduleFormat = "esm"
 }
 
 // Cloudflare D1 is SQLite-compatible, so the "sqlite" provider is used both
