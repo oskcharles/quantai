@@ -13,6 +13,7 @@ type Connection = {
   balance: number;
   equity: number;
   active: boolean;
+  webhookSecret: string | null;
 };
 
 type CopyLink = {
@@ -165,6 +166,138 @@ export default function DashboardClient({ userName }: { userName: string }) {
   );
 }
 
+function ConnectionRow({
+  connection: c,
+  onDelete,
+  onChange,
+  onError,
+}: {
+  connection: Connection;
+  onDelete: (id: string) => void;
+  onChange: () => void;
+  onError: (e: string | null) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [showWebhook, setShowWebhook] = useState(false);
+
+  const webhookUrl =
+    c.webhookSecret && typeof window !== "undefined"
+      ? `${window.location.origin}/api/webhooks/tradingview/${c.id}?secret=${c.webhookSecret}`
+      : null;
+
+  async function generateWebhook() {
+    setBusy(true);
+    onError(null);
+    try {
+      await api(`/api/connections/${c.id}/webhook`, { method: "POST" });
+      setShowWebhook(true);
+      onChange();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeWebhook() {
+    setBusy(true);
+    onError(null);
+    try {
+      await api(`/api/connections/${c.id}/webhook`, { method: "DELETE" });
+      onChange();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyWebhook() {
+    if (!webhookUrl) return;
+    try {
+      await navigator.clipboard.writeText(webhookUrl);
+    } catch {
+      // clipboard may be unavailable (e.g. insecure context) — the URL is still shown below
+    }
+  }
+
+  return (
+    <li className="rounded-md border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm">
+      <div className="flex items-center justify-between">
+        <div>
+          <span className="font-medium">{c.label}</span>{" "}
+          <span className="text-slate-500">
+            · {c.platform} · {c.role} · #{c.accountId}
+          </span>
+          <div className="text-xs text-slate-500">
+            Balance ${c.balance.toLocaleString()} · Equity ${c.equity.toLocaleString()}
+          </div>
+        </div>
+        <button onClick={() => onDelete(c.id)} className="text-xs text-red-400 hover:underline">
+          Remove
+        </button>
+      </div>
+
+      {c.role === "MASTER" && (
+        <div className="mt-2 border-t border-slate-800 pt-2">
+          {c.webhookSecret ? (
+            <div className="space-y-1">
+              <button
+                onClick={() => setShowWebhook((v) => !v)}
+                className="text-xs text-emerald-400 hover:underline"
+              >
+                {showWebhook ? "Hide" : "Show"} TradingView webhook URL
+              </button>
+              {showWebhook && webhookUrl && (
+                <div className="space-y-1">
+                  <code className="block break-all rounded bg-slate-900 px-2 py-1 text-xs text-slate-300">
+                    {webhookUrl}
+                  </code>
+                  <div className="flex gap-3 text-xs">
+                    <button onClick={copyWebhook} className="text-slate-300 hover:underline">
+                      Copy
+                    </button>
+                    <button
+                      onClick={generateWebhook}
+                      disabled={busy}
+                      className="text-slate-300 hover:underline disabled:opacity-60"
+                    >
+                      Regenerate
+                    </button>
+                    <button
+                      onClick={removeWebhook}
+                      disabled={busy}
+                      className="text-red-400 hover:underline disabled:opacity-60"
+                    >
+                      Disable
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    In TradingView&apos;s alert dialog, paste this as the webhook URL and set the
+                    message body to JSON like{" "}
+                    <code className="text-slate-400">
+                      {'{"symbol":"EURUSD","side":"BUY","volume":1}'}
+                    </code>
+                    .
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={generateWebhook}
+              disabled={busy}
+              className="text-xs text-emerald-400 hover:underline disabled:opacity-60"
+            >
+              {busy ? "Generating..." : "Set up TradingView webhook"}
+            </button>
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
+
 function ConnectionsPanel({
   connections,
   onChange,
@@ -229,26 +362,7 @@ function ConnectionsPanel({
 
       <ul className="mt-4 space-y-2">
         {connections.map((c) => (
-          <li
-            key={c.id}
-            className="flex items-center justify-between rounded-md border border-slate-800 bg-slate-950/60 px-3 py-2 text-sm"
-          >
-            <div>
-              <span className="font-medium">{c.label}</span>{" "}
-              <span className="text-slate-500">
-                · {c.platform} · {c.role} · #{c.accountId}
-              </span>
-              <div className="text-xs text-slate-500">
-                Balance ${c.balance.toLocaleString()} · Equity ${c.equity.toLocaleString()}
-              </div>
-            </div>
-            <button
-              onClick={() => handleDelete(c.id)}
-              className="text-xs text-red-400 hover:underline"
-            >
-              Remove
-            </button>
-          </li>
+          <ConnectionRow key={c.id} connection={c} onDelete={handleDelete} onChange={onChange} onError={onError} />
         ))}
         {connections.length === 0 && (
           <li className="text-sm text-slate-500">No accounts yet.</li>

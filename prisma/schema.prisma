@@ -46,6 +46,11 @@ model Connection {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
+  // Set on a MASTER connection to let an external signal source (e.g.
+  // TradingView alerts) open trades on it via POST
+  // /api/webhooks/tradingview/[connectionId]?secret=... — see that route.
+  webhookSecret String? @unique
+
   trades        Trade[]
   masterLinks   CopyLink[]    @relation("MasterLinks")
   followerLinks CopyLink[]    @relation("FollowerLinks")

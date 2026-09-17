@@ -6,6 +6,9 @@ accounts, and mirror trades between them with per-follower risk controls.
 Stack: Next.js 16 (App Router) + TypeScript + Tailwind, Prisma (SQLite
 schema), NextAuth (credentials), deployed to Cloudflare Workers via OpenNext.
 
+See [USER_GUIDE.md](./USER_GUIDE.md) for how to use the app itself
+(accounts, copy links, TradingView webhooks, running the copy engine).
+
 ## Local development
 
 ```bash
